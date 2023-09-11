@@ -1,0 +1,43 @@
+import os
+from aiogram import Bot, Dispatcher, types
+from aiogram.contrib.middlewares.logging import LoggingMiddleware
+from aiogram.utils import executor
+from dotenv import load_dotenv
+
+# Загрузка переменных окружения из .env файла
+load_dotenv()
+
+# Инициализация бота и диспетчера
+bot = Bot(token=os.getenv("BOT_TOKEN"))
+dp = Dispatcher(bot)
+dp.middleware.setup(LoggingMiddleware())
+
+# Обработчик команды /start
+@dp.message_handler(commands=["start"])
+async def start(message: types.Message):
+    user_name = message.from_user.first_name
+    await message.reply(f"Привет, {user_name}!")
+
+# Обработчик команды /myinfo
+@dp.message_handler(commands=["myinfo"])
+async def myinfo(message: types.Message):
+    user_id = message.from_user.id
+    user_name = message.from_user.first_name
+    username = message.from_user.username
+    await message.reply(f"Ваш ID: {user_id}\nВаше имя: {user_name}\nВаш никнейм: @{username}")
+
+# Обработчик команды /picture
+@dp.message_handler(commands=["picture"])
+async def send_random_picture(message: types.Message):
+    # Загрузите случайную картинку из папки images и отправьте ее пользователю
+    # Пример: с использованием библиотеки random и aiogram
+
+    # import random
+    # image_path = random.choice(["images/image1.jpg", "images/image2.jpg", "images/image3.jpg"])
+    # with open(image_path, "rb") as photo:
+    #     await message.reply_photo(photo)
+
+if __name__ == "__main__":
+    from aiogram import executor
+
+    executor.start_polling(dp, skip_updates=True)
