@@ -1,1 +1,76 @@
+import logging
+from aiogram import Bot, Dispatcher, types
+from aiogram.contrib.middlewares.logging import LoggingMiddleware
+from aiogram.dispatcher import FSMContext
+from aiogram.types import ParseMode
+from aiogram.utils import executor
+from aiogram.dispatcher.filters import Command
 
+from aiogram.dispatcher.filters.state import State, StatesGroup
+from aiogram.types import Message
+
+API_TOKEN = 'YOUR_API_TOKEN'
+
+logging.basicConfig(level=logging.INFO)
+
+bot = Bot(token=API_TOKEN)
+dp = Dispatcher(bot)
+dp.middleware.setup(LoggingMiddleware())
+
+class RegistrationStates(StatesGroup):
+    waiting_for_name = State()      # Ожидание имени пользователя
+    waiting_for_age = State()       # Ожидание возраста пользователя
+    waiting_for_gender = State()    # Ожидание выбора пола пользователя
+
+@dp.message_handler(Command('start'))
+async def cmd_start(message: types.Message):
+    """
+    Обработчик команды /start
+    """
+    await message.answer("Привет! Давай начнем анкету знакомств. Как тебя зовут?")
+    await RegistrationStates.waiting_for_name.set()
+
+@dp.message_handler(state=RegistrationStates.waiting_for_name)
+async def process_name(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        data['name'] = message.text
+    await message.reply(f"Отлично, {message.text}! Сколько тебе лет?")
+    await RegistrationStates.waiting_for_age.set()
+
+@dp.message_handler(lambda message: not message.text.isdigit(), state=RegistrationStates.waiting_for_age)
+async def process_age_invalid(message: types.Message):
+    """
+    Обработчик, если возраст введен некорректно (не число)
+    """
+    await message.reply("Пожалуйста, введите возраст числом (например, 25).")
+
+@dp.message_handler(lambda message: message.text.isdigit(), state=RegistrationStates.waiting_for_age)
+async def process_age(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        data['age'] = message.text
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, selective=True)
+    markup.add("Муж", "Жен")
+    await message.reply("Выберите ваш пол:", reply_markup=markup)
+    await RegistrationStates.waiting_for_gender.set()
+
+@dp.message_handler(lambda message: message.text not in ["Муж", "Жен"], state=RegistrationStates.waiting_for_gender)
+async def process_gender_invalid(message: types.Message):
+    """
+    Обработчик, если пол выбран некорректно
+    """
+    markup = types.ReplyKeyboardRemove()
+    await message.reply("Пожалуйста, выберите ваш пол с помощью кнопок 'Муж' или 'Жен'.",
+                        reply_markup=markup)
+
+@dp.message_handler(lambda message: message.text in ["Муж", "Жен"], state=RegistrationStates.waiting_for_gender)
+async def process_gender(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        data['gender'] = message.text
+
+    await state.finish()
+    await message.reply("Спасибо за заполнение анкеты! Мы готовы начать поиск совпадений. "
+                        "Если у вас возникнут еще вопросы, напишите /start, чтобы начать заново.")
+
+if __name__ == '__main__':
+    from aiogram import executor
+    executor.start_polling(dp, skip_updates=True)
