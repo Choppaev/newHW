@@ -1,0 +1,41 @@
+from aiogram import Bot, Dispatcher, types
+from aiogram.contrib.middlewares.logging import LoggingMiddleware
+from aiogram.types import ParseMode
+from aiogram.utils import executor
+
+from db import init_db, get_products  # Подключение функций работы с базой данных
+from config import BOT_TOKEN
+
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher(bot)
+dp.middleware.setup(LoggingMiddleware())
+
+async def on_startup(dp):
+    # Инициализация базы данных при запуске бота
+    await init_db()
+
+if __name__ == '__main__':
+    from handlers import dp
+    from handlers import *  # Импортируйте все обработчики
+
+    executor.start_polling(dp, on_startup=on_startup)
+
+from aiogram import types
+from aiogram.dispatcher.filters import Command
+from aiogram.types import ParseMode
+
+from loader import dp
+from db import get_products
+
+
+@dp.message_handler(Command("my_products"))
+async def show_my_products(message: types.Message):
+    user_id = message.from_user.id
+    products = get_products(user_id)
+
+    if products:
+        await message.answer("Ваши товары:")
+        for product in products:
+            await message.answer(f"Название: {product['name']}\nЦена: {product['price']} рублей")
+    else:
+        await message.answer("У вас пока нет добавленных товаров.")
